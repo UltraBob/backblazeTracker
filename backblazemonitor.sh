@@ -8,7 +8,7 @@ REPORTINGTIME=$(date)
 CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
 FILESIZE=$(du -h "$CHKFILE"| awk '{print $1}')
 echo $CHKTIME $SPACEREMAINING / $FILESIZE remaining of $CHKFILE
-while sleep 60
+while sleep $FREQUENCY
 do 
     CHKTIME=$(date +'%R')
     SPACEREMAINING=$(du -h -d 0 "$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile | awk '{print $1}')
