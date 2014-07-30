@@ -5,6 +5,7 @@ COLORTIME="\033[31m"
 COLORTEXT="\033[32m"
 COLORSPACE="\033[34m"
 COLORFILE="\033[36m"
+
 if [ $1 ]
 then
     FREQUENCY=$1
@@ -18,12 +19,7 @@ while [ 1 ]
 do 
     CHKTIME=$(date +'%R')
     SPACEREMAINING=$(du -h -d 0 "$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile | awk '{print $1}')
-    if [ test -e "$CHKFILE" ]
-    then
-        FILESIZE=$(du -h "$CHKFILE"| awk '{print $1}')
-    else
-        FILESIZE="?? (file currently unavailable)"
-    fi
-    echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT /$COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE"
+    FILESIZE=$((`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml`/1024**2))"M"
+    echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE"
     sleep "$SLTIME"
 done
