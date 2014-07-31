@@ -16,14 +16,14 @@ echo "You will receive an update every $FREQUENCY minutes"
 while [ 1 ]
 do 
     VOLUME=$(sed -n 's/^.*scratch_mountpoint="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzinfo.xml)
-    VOLUMEFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
+    VOLUMEFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
     TRANSFERRING=$(sed -n 's/^.*current_file_fullpath="\([^\"]*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/overviewstatus.xml)
     if [ -f "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml ] && [ "$VOLUMEFILE" == "$TRANSFERRING" ]
     then
         SCRATCH="$VOLUME"
-        CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
-        SPACECHECK="$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile
-        FILEFORSIZE="$VOLUME"/.bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml
+        CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
+        SPACECHECK="$VOLUME".bzvol/bzscratch/bzcurrentlargefile
+        FILEFORSIZE="$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml
     else
         SCRATCH="System Disk"
         CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
