@@ -11,6 +11,19 @@ then
     FREQUENCY=$1
 fi
 
+localcheck() {
+    if [ -f /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml ] # ensure that there is data transfer info for local scratch
+    then
+        SCRATCH="System Disk"
+        CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
+        SPACECHECK=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile
+        FILEFORSIZE=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml
+        LOCAL=true
+    else
+        LOCAL=false
+    fi
+}
+
 ## Possible states:
 # Ext scratch set, using external
 # Ext scratch set, using local
@@ -36,21 +49,13 @@ do
             EXT=true
         else
             EXT=false
+            localcheck
         fi
     else
         EXT=false
-        if [ -f /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml ] # ensure that there is data transfer info for local scratch
-        then
-            LOCAL=true
-            SCRATCH="System Disk"
-            CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
-            SPACECHECK=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile
-            FILEFORSIZE=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml
-        else
-            LOCAL=false
-        fi
+        localcheck
     fi
-    if [ $EXT == true ] || [ $LOCAL == true ] #transfer active
+    if [[ $EXT == true ]] || [[ $LOCAL == true ]] #transfer active
     then
         CHKTIME=$(date +'%R')
         SPACEREMAINING=$(du -h -d 0 "$SPACECHECK" | awk '{print $1}')
