@@ -1,7 +1,7 @@
 backblazeTracker
 ================
 
-A shell script to track large uploads to backblaze
+A shell script to track large uploads to [backblaze](http://www.backblaze.com/partner/af7798)
 
 This script is run with an optional argument to specify how many minutes to wait between updates.  The script can be halted by pressing ctrl-c
 
