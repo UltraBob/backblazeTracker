@@ -3,7 +3,7 @@
 FREQUENCY=1
 COLORTIME="\033[31m"
 COLORTEXT="\033[32m"
-COLORSPACE="\033[34m"
+COLORSPACE="\033[33m"
 COLORFILE="\033[36m"
 
 if [ $1 ]
@@ -24,6 +24,11 @@ localcheck() {
     fi
 }
 
+human_filesize() { 
+    read foo
+    awk -v sum="$foo" ' BEGIN {hum[1024^3]="Gb"; hum[1024^2]="Mb"; hum[1024]="Kb"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1kb"; } '
+}
+
 ## Possible states:
 # Ext scratch set, using external
 # Ext scratch set, using local
@@ -35,6 +40,7 @@ SLTIME=$(expr "$FREQUENCY" \* 60)
 echo "You will receive an update every $FREQUENCY minutes"
 while [ 1 ]
 do 
+    CHKTIME=$(date +'%R')
     VOLUME=$(sed -n 's/^.*scratch_mountpoint="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzinfo.xml)
     if [ -f "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml ] # Check that external scratch transfer info exists
     then
@@ -57,13 +63,12 @@ do
     fi
     if [[ $EXT == true ]] || [[ $LOCAL == true ]] #transfer active
     then
-        CHKTIME=$(date +'%R')
-        SPACEREMAINING=$(du -h -d 0 "$SPACECHECK" | awk '{print $1}')
-        FILESIZE=$((`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE"`/1024**2))"M"
+        SPACEREMAINING=$(du -d 0 "$SPACECHECK" | awk '{print $1}' | human_filesize)
+        FILESIZE=`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize`
         echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$SCRATCH")"
         
     else # no transfer
-        echo There seems to be no large transfer underway currently.
+        echo "$COLORTIME$CHKTIME$COLORTEXT" There seems to be no large transfer underway currently.
     fi
     
     sleep "$SLTIME"
