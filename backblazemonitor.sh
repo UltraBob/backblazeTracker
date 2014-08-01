@@ -26,7 +26,7 @@ localcheck() {
 
 human_filesize() { 
     read foo
-    awk -v sum="$foo" ' BEGIN {hum[1024^3]="Gb"; hum[1024^2]="Mb"; hum[1024]="Kb"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1kb"; } '
+    awk -v sum="$foo" ' BEGIN {hum[1024^3]="G"; hum[1024^2]="M"; hum[1024]="K"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1kb"; } '
 }
 
 ## Possible states:
@@ -63,7 +63,7 @@ do
     fi
     if [[ $EXT == true ]] || [[ $LOCAL == true ]] #transfer active
     then
-        SPACEREMAINING=$(du -d 0 "$SPACECHECK" | awk '{print $1}' | human_filesize)
+        SPACEREMAINING=$(du -h "$SPACECHECK" | awk '{print $1}')
         FILESIZE=`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize`
         echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$SCRATCH")"
         
