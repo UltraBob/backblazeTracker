@@ -6,6 +6,9 @@ COLORTEXT="\033[32m"
 COLORSPACE="\033[33m"
 COLORFILE="\033[36m"
 
+#unset SPACEDIFFERENCE
+#unset $SPACEREMAININGRAW
+
 if [ $1 ]
 then
     FREQUENCY=$1
@@ -26,7 +29,34 @@ localcheck() {
 
 human_filesize() { 
     read foo
-    awk -v sum="$foo" ' BEGIN {hum[1024^3]="G"; hum[1024^2]="M"; hum[1024]="K"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f %s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1kb"; } '
+    awk -v sum="$foo" ' BEGIN {hum[1024^3]="G"; hum[1024^2]="M"; hum[1024]="K"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f%s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1K"; } '
+}
+
+human_time() {
+    local minutes="$1"
+    min=0
+    hour=0
+    day=0
+    if ((minutes<0))
+    then
+        echo""
+    else
+    if ((minutes>59))
+        then
+            ((min=minutes%60))
+            ((minutes=minutes/60))
+            if((minutes>23))
+            then
+                ((hour=minutes%24))
+                ((day=num/24))
+            else
+                ((hour=minutes))
+            fi
+        else
+            ((min=minutes))
+        fi
+        echo " Roughly $COLORTIME${day}d,${hour}h,${min}m$COLORTEXT remaining."
+    fi
 }
 
 ## Possible states:
@@ -37,7 +67,7 @@ human_filesize() {
 # local scratch set, using none (not backing up or between files)
 
 SLTIME=$(expr "$FREQUENCY" \* 60)
-echo "You will receive an update every $FREQUENCY minutes"
+echo "You will receive an update every $COLORTIME$FREQUENCY minutes$COLORTEXT."
 while [ 1 ]
 do 
     CHKTIME=$(date +'%R')
@@ -64,8 +94,30 @@ do
     if [[ $EXT == true ]] || [[ $LOCAL == true ]] #transfer active
     then
         SPACEREMAINING=$(du -h "$SPACECHECK" | awk '{print $1}')
+        if [[ -n "$SPACEREMAININGRAW" ]]
+        then
+            SPACEREMAININGOLD="$SPACEREMAININGRAW"
+        fi
+        SPACEREMAININGRAW=$(du "$SPACECHECK" | awk '{print $1}')
+        if [[ -n "$SPACEREMAININGOLD" ]]
+        then
+            #do time remaining math
+            SPACEDIFFERENCE=$(( ${SPACEREMAININGOLD}-${SPACEREMAININGRAW} ))
+            if [[ $SPACEDIFFERENCE != 0 ]]
+            then
+                MINUTESREMAINING=$[ SPACEREMAININGRAW / SPACEDIFFERENCE * FREQUENCY ]
+                #TODO add function to break down the number of minutes to number of days, hours, and minutes.
+                MINUTESMESSAGE=$(human_time $MINUTESREMAINING)
+            else
+                MINUTESMESSAGE=" ETA Unavailable due to low transfer speed."
+            fi
+        else
+            # Make the time remaining message blank
+            MINUTESMESSAGE=""
+        fi
         FILESIZE=`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize`
-        echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$SCRATCH")"
+        echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$COLORFILE$SCRATCH$COLORTEXT")$MINUTESMESSAGE"
+        #echo ""
         
     else # no transfer
         echo "$COLORTIME$CHKTIME$COLORTEXT" There seems to be no large transfer underway currently.
