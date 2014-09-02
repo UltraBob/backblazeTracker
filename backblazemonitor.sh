@@ -28,32 +28,32 @@ localcheck() {
 }
 
 human_filesize() { 
-    read foo
-    awk -v sum="$foo" ' BEGIN {hum[1024^3]="G"; hum[1024^2]="M"; hum[1024]="K"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f%s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1K"; } '
+    read filesize
+    awk -v sum="$filesize" ' BEGIN {hum[1024^3]="G"; hum[1024^2]="M"; hum[1024]="K"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f%s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1K"; } '
 }
 
 human_time() {
-    local minutes="$1"
+    local totalminutes="$1"
     min=0
     hour=0
     day=0
-    if ((minutes<0))
+    if ((totalminutes<0))
     then
         echo""
     else
-    if ((minutes>59))
+    if ((totalminutes>59))
         then
-            ((min=minutes%60))
-            ((minutes=minutes/60))
-            if((minutes>23))
+            ((min=totalminutes%60))
+            ((totalminutes=totalminutes/60))
+            if((totalminutes>23))
             then
-                ((hour=minutes%24))
-                ((day=num/24))
+                ((hour=totalminutes%24))
+                ((day=totalminutes/24))
             else
-                ((hour=minutes))
+                ((hour=totalminutes))
             fi
         else
-            ((min=minutes))
+            ((min=totalminutes))
         fi
         echo " Roughly $COLORTIME${day}d,${hour}h,${min}m$COLORTEXT remaining."
     fi
@@ -93,7 +93,9 @@ do
     fi
     if [[ $EXT == true ]] || [[ $LOCAL == true ]] #transfer active
     then
-        SPACEREMAINING=$(du -h "$SPACECHECK" | awk '{print $1}')
+        SPACEREMAINING=$(du "$SPACECHECK" | awk '{print $1}')
+        SPACEREMAINING=$(($SPACEREMAINING / 2 * 1024))
+        SPACEREMAINING=`echo $SPACEREMAINING | human_filesize`
         if [[ -n "$SPACEREMAININGRAW" ]]
         then
             SPACEREMAININGOLD="$SPACEREMAININGRAW"
@@ -117,7 +119,6 @@ do
         fi
         FILESIZE=`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize`
         echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$COLORFILE$SCRATCH$COLORTEXT")$MINUTESMESSAGE"
-        #echo ""
         
     else # no transfer
         echo "$COLORTIME$CHKTIME$COLORTEXT" There seems to be no large transfer underway currently.
