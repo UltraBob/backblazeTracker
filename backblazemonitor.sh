@@ -1,4 +1,5 @@
 #!/bin/sh
+##TODO add a check before the $SPACEREMAINING checks that if the current file is different from the previous file, unset the SPACEREMAINING related variables, remove unset statements from the no transfer happening block
 
 FREQUENCY=1
 COLORTIME="\033[31m"
@@ -14,6 +15,8 @@ then
     FREQUENCY=$1
 fi
 
+DEBUGGER=0
+
 localcheck() {
     if [ -f /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml ] # ensure that there is data transfer info for local scratch
     then
@@ -24,6 +27,38 @@ localcheck() {
         LOCAL=true
     else
         LOCAL=false
+    fi
+}
+
+debug() {
+    if [[ $DEBUGGER == 1 ]]
+    then
+        echo $1
+    fi
+}
+
+space_remaining_recordkeeping() {
+    debug "space_remaining_recordkeeping"
+    if [[ -n "$SPACEREMAININGRAW" ]]
+    then
+        SPACEREMAININGOLD="$SPACEREMAININGRAW"
+    fi
+    SPACEREMAININGRAW=$(du "$SPACECHECK" | awk '{print $1}')
+    if [[ -n "$SPACEREMAININGOLD" ]]
+    then
+        #do time remaining math
+        SPACEDIFFERENCE=$(( ${SPACEREMAININGOLD}-${SPACEREMAININGRAW} ))
+        if [[ $SPACEDIFFERENCE != 0 ]]
+        then
+            MINUTESREMAINING=$[ SPACEREMAININGRAW / SPACEDIFFERENCE * FREQUENCY ]
+            #TODO add function to break down the number of minutes to number of days, hours, and minutes.
+            MINUTESMESSAGE=$(human_time $MINUTESREMAINING)
+        else
+            MINUTESMESSAGE=" ETA Unavailable due to low transfer speed."
+        fi
+    else
+        # Make the time remaining message blank
+        MINUTESMESSAGE=""
     fi
 }
 
@@ -39,7 +74,7 @@ human_time() {
     day=0
     if ((totalminutes<0))
     then
-        echo""
+        echo ""
     else
     if ((totalminutes>59))
         then
@@ -67,7 +102,7 @@ human_time() {
 # local scratch set, using none (not backing up or between files)
 
 SLTIME=$(expr "$FREQUENCY" \* 60)
-echo "You will receive an update every $COLORTIME$FREQUENCY minutes$COLORTEXT."
+debug "You will receive an update every $COLORTIME$FREQUENCY minutes$COLORTEXT."
 while [ 1 ]
 do 
     CHKTIME=$(date +'%R')
@@ -96,32 +131,31 @@ do
         SPACEREMAINING=$(du "$SPACECHECK" | awk '{print $1}')
         SPACEREMAINING=$(($SPACEREMAINING / 2 * 1024))
         SPACEREMAINING=`echo $SPACEREMAINING | human_filesize`
-        if [[ -n "$SPACEREMAININGRAW" ]]
+        if [[ -n "$OLDFILE" ]] # If there was a file being considered last loop through
         then
-            SPACEREMAININGOLD="$SPACEREMAININGRAW"
-        fi
-        SPACEREMAININGRAW=$(du "$SPACECHECK" | awk '{print $1}')
-        if [[ -n "$SPACEREMAININGOLD" ]]
-        then
-            #do time remaining math
-            SPACEDIFFERENCE=$(( ${SPACEREMAININGOLD}-${SPACEREMAININGRAW} ))
-            if [[ $SPACEDIFFERENCE != 0 ]]
+            debug "old file exists"
+            if [[ "$SPACECHECK" == "$OLDFILE" ]] # if we are working with the same file
             then
-                MINUTESREMAINING=$[ SPACEREMAININGRAW / SPACEDIFFERENCE * FREQUENCY ]
-                #TODO add function to break down the number of minutes to number of days, hours, and minutes.
-                MINUTESMESSAGE=$(human_time $MINUTESREMAINING)
+                debug "same file as last loop through"
+                space_remaining_recordkeeping
             else
-                MINUTESMESSAGE=" ETA Unavailable due to low transfer speed."
+                debug "file changed, reset things"
+                unset OLDFILE
+                unset SPACEREMAININGRAW
+                space_remaining_recordkeeping
             fi
         else
-            # Make the time remaining message blank
-            MINUTESMESSAGE=""
+            debug "old file doesn't exist first run through or file changed last time"
+            OLDFILE=$SPACECHECK
+            space_remaining_recordkeeping
         fi
         FILESIZE=`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize`
         echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$COLORFILE$SCRATCH$COLORTEXT")$MINUTESMESSAGE"
         
     else # no transfer
         echo "$COLORTIME$CHKTIME$COLORTEXT" There seems to be no large transfer underway currently.
+        unset OLDFILE
+        unset SPACEREMAININGRAW
     fi
     
     sleep "$SLTIME"
