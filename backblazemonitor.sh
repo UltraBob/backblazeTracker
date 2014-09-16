@@ -10,7 +10,7 @@ COLORFILE="\033[36m"
 #unset SPACEDIFFERENCE
 #unset $SPACEREMAININGRAW
 
-if [ $1 ]
+if [ "$1" ]
 then
     FREQUENCY=$1
 fi
@@ -31,27 +31,28 @@ localcheck() {
 }
 
 debug() {
-    if [[ $DEBUGGER == 1 ]]
+    if [ $DEBUGGER = 1 ]
     then
-        echo $1
+        echo "$1"
     fi
 }
 
 space_remaining_recordkeeping() {
     debug "space_remaining_recordkeeping"
-    if [[ -n "$SPACEREMAININGRAW" ]]
+    if [ -n "$SPACEREMAININGRAW" ]
     then
         SPACEREMAININGOLD="$SPACEREMAININGRAW"
     fi
     SPACEREMAININGRAW=$(du "$SPACECHECK" | awk '{print $1}')
-    if [[ -n "$SPACEREMAININGOLD" ]]
+    if [ -n "$SPACEREMAININGOLD" ]
     then
         #do time remaining math
-        SPACEDIFFERENCE=$(( ${SPACEREMAININGOLD}-${SPACEREMAININGRAW} ))
-        if [[ $SPACEDIFFERENCE != 0 ]]
+        SPACEDIFFERENCE=$(( SPACEREMAININGOLD-SPACEREMAININGRAW ))
+        debug "SPACEDIFFERENCE is $SPACEDIFFERENCE"
+        if [ $SPACEDIFFERENCE != 0 ]
         then
-            MINUTESREMAINING=$[ SPACEREMAININGRAW / SPACEDIFFERENCE * FREQUENCY ]
-            #TODO add function to break down the number of minutes to number of days, hours, and minutes.
+            MINUTESREMAINING=$(( SPACEREMAININGRAW * FREQUENCY / SPACEDIFFERENCE ))
+            debug "SPACEDIFFERENCE was not zero so MINUTESREMAINING is $MINUTESREMAINING"
             MINUTESMESSAGE=$(human_time $MINUTESREMAINING)
         else
             MINUTESMESSAGE=" ETA Unavailable due to low transfer speed."
@@ -62,7 +63,7 @@ space_remaining_recordkeeping() {
     fi
 }
 
-human_filesize() { 
+human_filesize() {
     read filesize
     awk -v sum="$filesize" ' BEGIN {hum[1024^3]="G"; hum[1024^2]="M"; hum[1024]="K"; for (x=1024^3; x>=1024; x/=1024) { if (sum>=x) { printf "%.2f%s\n",sum/x,hum[x]; break; } } if (sum<1024) print "1K"; } '
 }
@@ -72,23 +73,24 @@ human_time() {
     min=0
     hour=0
     day=0
-    if ((totalminutes<0))
+    if [ "$totalminutes" -lt 0 ]
     then
+        debug "minutes remaining was less than 0, return an empty string"
         echo ""
     else
-    if ((totalminutes>59))
+    if [ "$totalminutes" -gt 59 ]
         then
-            ((min=totalminutes%60))
-            ((totalminutes=totalminutes/60))
-            if((totalminutes>23))
+            min=$((totalminutes%60))
+            totalminutes=$((totalminutes/60))
+            if [ "$totalminutes" -gt 23 ]
             then
-                ((hour=totalminutes%24))
-                ((day=totalminutes/24))
+                hour=$((totalminutes%24))
+                day=$((totalminutes/24))
             else
-                ((hour=totalminutes))
+                hour="$totalminutes"
             fi
         else
-            ((min=totalminutes))
+            min="$totalminutes"
         fi
         echo " Roughly $COLORTIME${day}d,${hour}h,${min}m$COLORTEXT remaining."
     fi
@@ -101,17 +103,18 @@ human_time() {
 # local scratch set, using local
 # local scratch set, using none (not backing up or between files)
 
-SLTIME=$(expr "$FREQUENCY" \* 60)
+SLTIME=$((FREQUENCY * 60))
+echo "This script will run until you interrupt it (CTRL-C)"
 debug "You will receive an update every $COLORTIME$FREQUENCY minutes$COLORTEXT."
-while [ 1 ]
-do 
+while true
+do
     CHKTIME=$(date +'%R')
     VOLUME=$(sed -n 's/^.*scratch_mountpoint="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzinfo.xml)
     if [ -f "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml ] # Check that external scratch transfer info exists
     then
         VOLUMEFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
         TRANSFERRING=$(sed -n 's/^.*current_file_fullpath="\([^\"]*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/overviewstatus.xml)
-        if [ "$VOLUMEFILE" == "$TRANSFERRING" ] # check that external scratch transfer data matches current transfer (TODO: interrupted transfer could lead to false reporting when local is transferring file formerly being transferred on scratch, try to find a definitive answer from backblaze about what scratch is being used currently)
+        if [ "$VOLUMEFILE" = "$TRANSFERRING" ] # check that external scratch transfer data matches current transfer (TODO: interrupted transfer could lead to false reporting when local is transferring file formerly being transferred on scratch, try to find a definitive answer from backblaze about what scratch is being used currently)
         then
             SCRATCH="$VOLUME"
             CHKFILE="$VOLUMEFILE"
@@ -126,15 +129,15 @@ do
         EXT=false
         localcheck
     fi
-    if [[ $EXT == true ]] || [[ $LOCAL == true ]] #transfer active
+    if [ "$EXT" = true ] || [ "$LOCAL" = true ] #transfer active
     then
         SPACEREMAINING=$(du "$SPACECHECK" | awk '{print $1}')
-        SPACEREMAINING=$(($SPACEREMAINING / 2 * 1024))
-        SPACEREMAINING=`echo $SPACEREMAINING | human_filesize`
-        if [[ -n "$OLDFILE" ]] # If there was a file being considered last loop through
+        SPACEREMAINING=$((SPACEREMAINING * 1024 / 2))
+        SPACEREMAINING=$(echo $SPACEREMAINING | human_filesize)
+        if [ -n "$OLDFILE" ] # If there was a file being considered last loop through
         then
             debug "old file exists"
-            if [[ "$SPACECHECK" == "$OLDFILE" ]] # if we are working with the same file
+            if [ "$SPACECHECK" = "$OLDFILE" ] # if we are working with the same file
             then
                 debug "same file as last loop through"
                 space_remaining_recordkeeping
@@ -149,14 +152,14 @@ do
             OLDFILE=$SPACECHECK
             space_remaining_recordkeeping
         fi
-        FILESIZE=`sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize`
-        echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on "$COLORFILE$SCRATCH$COLORTEXT")$MINUTESMESSAGE"
-        
+        FILESIZE=$(sed -n 's/^.*numbytesinfile="\([^\"]*\)".*$/\1/p' "$FILEFORSIZE" | human_filesize)
+        echo "$COLORTIME$CHKTIME $COLORSPACE$SPACEREMAINING$COLORTEXT / $COLORSPACE$FILESIZE$COLORTEXT remaining of $COLORFILE$CHKFILE$COLORTEXT (scratch on $COLORFILE$SCRATCH$COLORTEXT)$MINUTESMESSAGE"
+
     else # no transfer
         echo "$COLORTIME$CHKTIME$COLORTEXT" There seems to be no large transfer underway currently.
         unset OLDFILE
         unset SPACEREMAININGRAW
     fi
-    
+
     sleep "$SLTIME"
 done
