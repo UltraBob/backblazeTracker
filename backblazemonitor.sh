@@ -17,19 +17,6 @@ fi
 
 DEBUGGER=0
 
-localcheck() {
-    if [ -f /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml ] # ensure that there is data transfer info for local scratch
-    then
-        SCRATCH="System Disk"
-        CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
-        SPACECHECK=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile
-        FILEFORSIZE=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml
-        LOCAL=true
-    else
-        LOCAL=false
-    fi
-}
-
 debug() {
     if [ $DEBUGGER = 1 ]
     then
@@ -109,27 +96,34 @@ debug "You will receive an update every $COLORTIME$FREQUENCY minutes$COLORTEXT."
 while true
 do
     CHKTIME=$(date +'%R')
-    VOLUME=$(sed -n 's/^.*scratch_mountpoint="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzinfo.xml)
-    if [ -f "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml ] # Check that external scratch transfer info exists
+    if [ -f /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml ]
     then
-        VOLUMEFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
-        TRANSFERRING=$(sed -n 's/^.*current_file_fullpath="\([^\"]*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/overviewstatus.xml)
-        if [ "$VOLUMEFILE" = "$TRANSFERRING" ] # check that external scratch transfer data matches current transfer (TODO: interrupted transfer could lead to false reporting when local is transferring file formerly being transferred on scratch, try to find a definitive answer from backblaze about what scratch is being used currently)
+        VOLUME=$(sed -n 's/^.*external_scratch_folder="\(.*\)\.bzvol.*".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
+        if [[ -z "$VOLUME" ]] # Local Scratch
         then
+            VOLUMEFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
+            SCRATCH="System Disk"
+            CHKFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml)
+            SPACECHECK=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile
+            FILEFORSIZE=/Library/Backblaze.bzpkg/bzdata/bzbackup/bzdatacenter/bzcurrentlargefile/currentlargefile.xml
+        else
+            VOLUMEFILE=$(sed -n 's/^.*bzfname="\(.*\)".*$/\1/p' "$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml)
             SCRATCH="$VOLUME"
             CHKFILE="$VOLUMEFILE"
             SPACECHECK="$VOLUME".bzvol/bzscratch/bzcurrentlargefile
             FILEFORSIZE="$VOLUME".bzvol/bzscratch/bzcurrentlargefile/currentlargefile.xml
-            EXT=true
+        fi
+        TRANSFERRING=$(sed -n 's/^.*current_file_fullpath="\([^\"]*\)".*$/\1/p' /Library/Backblaze.bzpkg/bzdata/overviewstatus.xml)
+        if [ "$VOLUMEFILE" = "$TRANSFERRING" ] # check that external scratch transfer data matches current transfer (TODO: interrupted transfer could lead to false reporting when local is transferring file formerly being transferred on scratch, try to find a definitive answer from backblaze about what scratch is being used currently)
+        then
+            transferring=true
         else
-            EXT=false
-            localcheck
+            transferring=false
         fi
     else
-        EXT=false
-        localcheck
+        transferring=false
     fi
-    if [ "$EXT" = true ] || [ "$LOCAL" = true ] #transfer active
+    if [ "$transferring" = true ]
     then
         SPACEREMAINING=$(du "$SPACECHECK" | awk '{print $1}')
         SPACEREMAINING=$((SPACEREMAINING * 1024 / 2))
