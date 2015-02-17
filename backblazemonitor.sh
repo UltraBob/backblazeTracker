@@ -6,6 +6,7 @@ COLORTIME="\033[31m"
 COLORTEXT="\033[32m"
 COLORSPACE="\033[33m"
 COLORFILE="\033[36m"
+BACKBLAZEAPP="/Applications/Backblaze.app"
 
 #unset SPACEDIFFERENCE
 #unset $SPACEREMAININGRAW
@@ -91,7 +92,7 @@ human_time() {
 # local scratch set, using none (not backing up or between files)
 
 SLTIME=$((FREQUENCY * 60))
-echo "This script will run until you interrupt it (CTRL-C)"
+echo "This script will run until you interrupt it (CTRL-C); press 'b' to launch the Backblaze preference pane."
 debug "You will receive an update every $COLORTIME$FREQUENCY minutes$COLORTEXT."
 while true
 do
@@ -154,6 +155,13 @@ do
         unset OLDFILE
         unset SPACEREMAININGRAW
     fi
-
-    sleep "$SLTIME"
+    read -t $SLTIME -n 1 -s key
+    if [[ $key = b ]]
+    then
+        key=""
+        if [ -n $BACKBLAZEAPP ]
+        then
+            open $BACKBLAZEAPP
+        fi
+    fi
 done
